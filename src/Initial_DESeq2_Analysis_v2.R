@@ -6,7 +6,7 @@
 ## positional arguments:
 ##  YAML_CONFIG           the configuration file. See /scratch/cgsb/ercan/scripts/rna/slurm/config_deseq.yaml
 ##                        in Prince or https://drive.google.com/open?id=1HCEOuFQQsObFf5QVLvF3n0a-894Ts9Ze for an example
-##                        
+##
 #########################################################################################
 
 ###################################################################################################################################
@@ -32,7 +32,7 @@ getColNames <- function(sampleCondition){
       rep_n <- 1
     }
     col_names[i] <- paste0(curr_condition, "_r", rep_n)
-    rep_n <- rep_n + 1 
+    rep_n <- rep_n + 1
     i <- i + 1
   }
   col_names
@@ -105,7 +105,7 @@ plotPairwiseCountData <- function(df, file){
     x.data<-df[,reps.list[i]]
     for(j in 1:n_reps){
       if(j >=i){
-        
+
         y.data<-df[,reps.list[j]]
         plot((x.data),(y.data),xlab=reps.list[i],ylab=reps.list[j],xlim=c(0,110000),ylim=c(0,110000)) #you may want to change the x and y limits
         r2<-round(summary(lm(y.data ~ x.data))$r.squared,4)
@@ -130,14 +130,14 @@ boxPlotDESeqByChromosome <- function(df, file, c_elegans_annots, title){
   pdf(file=file)
   ylow = min(merged$log2FoldChange, na.rm=TRUE)
   yhigh = max(merged$log2FoldChange, na.rm=TRUE)
-  boxplot(log2FoldChange~Chr.Name,data=merged, main=title, 
+  boxplot(log2FoldChange~Chr.Name,data=merged, main=title,
           xlab="Chromosome", ylab="Log2 Fold Change", ylim=c(ylow, yhigh))
-  
-  stats_by_chromosome <- 
+
+  stats_by_chromosome <-
     merged %>%
     group_by(Chr.Name) %>%
     summarize(mean = mean(log2FoldChange, na.rm = TRUE), std=sd(log2FoldChange, na.rm = TRUE))
-  
+
   mean <- sapply(stats_by_chromosome$mean, sprintf, fmt="%.3f")
   std <- sapply(stats_by_chromosome$std, sprintf, fmt="%.3f")
   text(c(1), y=0.9*ylow, labels=c("mean:"))
@@ -151,10 +151,10 @@ scatterPlotDeseq <- function(res, c_elegans_annots, file, title){
   pdf(file=file)
   ylow <- min(merged$log2FoldChange, na.rm=TRUE)
   yhigh <- max(merged$log2FoldChange, na.rm=TRUE)
-  plotMA(merged[c("baseMean", "log2FoldChange", "is_X")], main=title, 
+  plotMA(merged[c("baseMean", "log2FoldChange", "is_X")], main=title,
          xlab="Base mean", ylab="Log2 Fold Change", colSig='cyan',
          ylim=c(ylow, yhigh))
-  
+
   legend('bottomright','groups',c("X genes","Autosomal genes"), pch = 16,
          col=c('cyan', 'black'),ncol=2,bty ="n")
   dev.off()
@@ -221,7 +221,7 @@ pValueLogFoldChangeByChromosome <- function(df){
     }
   }
   null_mean <- mean(null_mean)
-  
+
   res <- list()
   for (chr in unique(df$Chr.Name)){
     if (chr == "MtDNA"){
@@ -243,7 +243,7 @@ readInFiles <- function(infiles){
   files_by_id <- vector("list", max_id)
   conditions <- vector("list", max_id)
   types <- vector("list", max_id)
-  
+
   for (ele in infiles){
     id  <- ele$id
     if (is.null(files_by_id[[id]])){
@@ -305,14 +305,14 @@ fpkm_files <- inFiles_data$fpkm_files
 sampleTable <- data.frame(sampleName=sampleFiles, fileName=sampleFiles, condition=sampleCondition)
 dds <- DESeqDataSetFromHTSeqCount(sampleTable = sampleTable, directory = counts_dir, design= ~ condition)
 
-## filter out low/no count genes ## 
+## filter out low/no count genes ##
 # nrow(dds)
 # [1] 20389
 filt.dds <- dds[ rowSums(counts(dds)) > 1, ]
 # Example
 # nrow(filt.dds)
 # [1] 19841
-# That is, 548 genes had no reads across all 40 samples. 
+# That is, 548 genes had no reads across all 40 samples.
 
 ## get normalized count values ##
 #
@@ -332,7 +332,7 @@ not_for_plot <- c('Chr.Name', 'gene_id', 'Gene.WB.ID')
 for (chr in unique(merged$Chr.Name)){
   filepath <- file.path(out_dir, paste0(DATANAME,'.heatmap.spearman.thresholded.fpkm.', chr, '.pdf'))
   title <- paste0("Correlations of FPKM of ", chr, " genes")
-  
+
   df<-filter(merged, Chr.Name == chr)
   df <- df[, !(names(df) %in% not_for_plot)]
   plotSpearmenHeatmap(df, filepath, title)
@@ -354,7 +354,7 @@ wbid <- getGenesWbId(conf$c_elegans_wbid_to_gene, genes)
 
 avg.count.data<-data.frame(wbid=wbid, conditions_avg)
 filepath <- file.path(out_dir,'avg.count.data.txt')
-write.table(avg.count.data,file=filepath,row.names=T,col.names=T,quote=F,sep='\t')
+write.table(format(avg.count.data, digits=3),file=filepath,row.names=T,col.names=T,quote=F,sep='\t')
 
 #######################################
 ## plot replicates pairwise with Rsquared values ##
@@ -375,17 +375,17 @@ pairwise_res_df <- data.frame(row.names = genes)
 for (i in seq(n_conditions-1)){
   for (j in seq(i+1,n_conditions)){
     deseq.df <- do.DEseq(condTables[[i]], condTables[[j]],
-                        conditions[[i]], conditions[[j]], 
+                        conditions[[i]], conditions[[j]],
                         conditions_avg[[i]], conditions_avg[[j]], condition_type)
-    
+
     basename <- paste0(conditions[[i]],'vs',conditions[[j]])
     filepath <- file.path(out_dir, paste0(basename,'.deseq.txt'))
-    write.table(deseq.df,file=filepath,row.names=T,col.names=T,quote=F,sep='\t')
+    write.table(format(deseq.df, digits=3),file=filepath,row.names=T,col.names=T,quote=F,sep='\t')
     pairwise_res_df <- updatePairwiseDataFrame(pairwise_res_df, deseq.df, basename)
-    
+
     filepath <- file.path(out_dir, paste0(basename,'.deseq.boxplot.by.chromosome.pdf'))
     boxPlotDESeqByChromosome(deseq.df, filepath, c_elegans_annots, "Log Fold Change By Chromosome")
-    
+
     filepath <- file.path(out_dir, paste0(basename,'.deseq.scatterplot.pdf'))
     scatterPlotDeseq(deseq.df, c_elegans_annots, filepath, "Log Fold change vs expression")
   }
@@ -398,9 +398,9 @@ samplemeans.df<-as.data.frame(conditions_avg)
 
 summary.data.df<-as.data.frame(cbind(wbid,samplemeans.df, pairwise_res_df))
 filepath <- file.path(out_dir, 'deseq.summaryoverview.txt')
-write.table(summary.data.df,file=filepath,row.names=T,col.names=T,quote=F,sep='\t')
+write.table(format(summary.data.df, digits=3),file=filepath,row.names=T,col.names=T,quote=F,sep='\t')
 
-# todo: organize folder - should have conf in top dir then a counts folder, a fpkm folder and a output folder 
+# todo: organize folder - should have conf in top dir then a counts folder, a fpkm folder and a output folder
 file.copy(fpkm_dir, deseq_dir, recursive = TRUE)
 file.copy(counts_dir, deseq_dir, recursive = TRUE)
 file.copy(args[1], deseq_dir)

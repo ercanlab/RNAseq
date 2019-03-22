@@ -16,13 +16,13 @@
 ##       - id:        unique identifier of biological replicate. Technical replicates
 ##                    must have the same id
 ##       - condition: condition name. These are generic, all replicates from
-##                    the same condition should have the same "condition"
+##                    the same condition should have the same "condition" (can have more than 2 conditions)
 ##       - type:      must only take one of two values: "control" or "treatment"
 ##       - fastq:     fastq file name (can be or not gzipped; do NOT include path to file)
 ##
 ##
 ---
-# title of the experiment - make sure the same name doesn't exit in /scratch/cgsb/ercan/rna/deseq 
+# title of the experiment - make sure the same name doesn't exit in /scratch/cgsb/ercan/rna/deseq
 experiment_title: dpy-27_RNAi
 
 nyuid: dam740
@@ -43,7 +43,7 @@ infiles:
 
   - id: 1
     condition: control
-    type: control  
+    type: control
     fastq: SEA59_GATCAG_L002_R1_001.fastq.gz
 
   - id: 2
