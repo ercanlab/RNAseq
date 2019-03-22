@@ -354,7 +354,8 @@ wbid <- getGenesWbId(conf$c_elegans_wbid_to_gene, genes)
 
 avg.count.data<-data.frame(wbid=wbid, conditions_avg)
 filepath <- file.path(out_dir,'avg.count.data.txt')
-write.table(format(avg.count.data, digits=3),file=filepath,row.names=T,col.names=T,quote=F,sep='\t')
+write.table(format(avg.count.data, digits=2, scientific=FALSE),file=filepath,row.names=T,col.names=T,quote=F,sep='\t')
+
 
 #######################################
 ## plot replicates pairwise with Rsquared values ##
@@ -380,7 +381,7 @@ for (i in seq(n_conditions-1)){
 
     basename <- paste0(conditions[[i]],'vs',conditions[[j]])
     filepath <- file.path(out_dir, paste0(basename,'.deseq.txt'))
-    write.table(format(deseq.df, digits=3),file=filepath,row.names=T,col.names=T,quote=F,sep='\t')
+    write.table(format(as.data.frame(deseq.df), digits=2, scientific=FALSE),file=filepath,row.names=T,col.names=T,quote=F,sep='\t')
     pairwise_res_df <- updatePairwiseDataFrame(pairwise_res_df, deseq.df, basename)
 
     filepath <- file.path(out_dir, paste0(basename,'.deseq.boxplot.by.chromosome.pdf'))
@@ -398,7 +399,7 @@ samplemeans.df<-as.data.frame(conditions_avg)
 
 summary.data.df<-as.data.frame(cbind(wbid,samplemeans.df, pairwise_res_df))
 filepath <- file.path(out_dir, 'deseq.summaryoverview.txt')
-write.table(format(summary.data.df, digits=3),file=filepath,row.names=T,col.names=T,quote=F,sep='\t')
+write.table(format(summary.data.df, digits=2, scientific=FALSE),file=filepath,row.names=T,col.names=T,quote=F,sep='\t')
 
 # todo: organize folder - should have conf in top dir then a counts folder, a fpkm folder and a output folder
 file.copy(fpkm_dir, deseq_dir, recursive = TRUE)
