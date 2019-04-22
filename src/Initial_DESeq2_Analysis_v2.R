@@ -237,22 +237,31 @@ pValueLogFoldChangeByChromosome <- function(df){
 }
 
 readInFiles <- function(infiles){
+  idx = 1
+  id_to_idx = new.env()
+  for (ele in infiles){
+    id  <- toString(ele$id)
+    if (is.null(id_to_idx[[id]])){
+      id_to_idx[[id]] <- idx
+      idx = idx + 1
+    }
+  }
+  num_files <- length(id_to_idx)
   bam_suffix <- "_accepted_hits_counts.txt"
   fpkm_suffix <- "_cufflinks.genes.fpkm_tracking"
-  max_id <- max(unlist(lapply(infiles, function(x) x$id)))
-  files_by_id <- vector("list", max_id)
-  conditions <- vector("list", max_id)
-  types <- vector("list", max_id)
-
+  files_by_id <- vector("list", num_files)
+  conditions <- vector("list", num_files)
+  types <- vector("list", num_files)
+  
   for (ele in infiles){
-    id  <- ele$id
-    if (is.null(files_by_id[[id]])){
-      files_by_id[[id]] <- list(ele$fastq)
+    idx  <- id_to_idx[[toString(ele$id)]]
+    if (is.null(files_by_id[[idx]])){
+      files_by_id[[idx]] <- list(ele$fastq)
     } else {
-      files_by_id[[id]] <- list(files_by_id[[id]], ele$fastq)
+      files_by_id[[idx]] <- list(files_by_id[[idx]], ele$fastq)
     }
-    conditions[[id]] <- ele$condition
-    types[[id]] <- ele$type
+    conditions[[idx]] <- ele$condition
+    types[[idx]] <- ele$type
   }
   count_files <- unlist(lapply(files_by_id, function(x)
     paste0(paste0(gsub(".fastq.gz", "", unlist(x)), collapse="_"), bam_suffix)))
