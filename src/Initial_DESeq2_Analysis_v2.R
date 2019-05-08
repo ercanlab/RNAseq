@@ -1,18 +1,28 @@
-##########################################################################################
-## Performs standard DEseq analysis. Also saves DEseq results
-##
-## usage: Rscript Initial_DESeq2_Analysis.R YAML_CONFIG
-##
-## positional arguments:
-##  YAML_CONFIG           the configuration file. See /scratch/cgsb/ercan/scripts/rna/slurm/config_deseq.yaml
-##                        in Prince or https://drive.google.com/open?id=1HCEOuFQQsObFf5QVLvF3n0a-894Ts9Ze for an example
-##
-#########################################################################################
+################################################################################
+## Performs standard DEseq analysis. Also saves DEseq results                 ##
+##                                                                            ##
+## usage: Rscript Initial_DESeq2_Analysis.R YAML_CONFIG                       ##
+##                                                                            ##
+## positional arguments:                                                      ##
+##  YAML_CONFIG                                                               ##
+##  An example of the configuration file is on Prince at:                     ##
+##  /scratch/cgsb/ercan/scripts/rna/slurm/config_deseq.yaml                   ##
+##  or on gdrive:                                                             ##
+##  https://drive.google.com/open?id=1HCEOuFQQsObFf5QVLvF3n0a-894Ts9Ze        ##
+##                                                                            ##
+################################################################################
 
-###################################################################################################################################
-## The package DESeq2 provides methods to test for differential expression by use of negative binomial generalized linear models #################################
-## documentation: https://bioconductor.org/packages/3.7/bioc/vignettes/DESeq2/inst/doc/DESeq2.html
-###################################################################################################################################
+
+################################################################################
+## The package DESeq2 provides methods to test for differential expression by ##
+## use of negative binomial generalized linear models                         ##
+## Documentation for DESSeq2 is found at:                                     ##
+## https://bioconductor.org/packages/3.7/bioc/vignettes/DESeq2/inst/doc/DESeq2.html ##
+################################################################################
+
+
+## Load up required packages
+library('stringr')
 suppressMessages(library('DESeq2'))
 library('yaml')
 suppressMessages(library('gplots'))
@@ -22,6 +32,9 @@ suppressMessages(library("dplyr"))
 
 ####################################
 ##### Define utility functions #####
+####################################
+
+## Extract condition and rep names to add to normalized data frame.
 getColNames <- function(sampleCondition){
   curr_condition <- ""
   col_names <- vector(mode="character", length=length(sampleCondition))
@@ -160,19 +173,7 @@ scatterPlotDeseq <- function(res, c_elegans_annots, file, title){
   dev.off()
 }
 
-validateInfiles <- function(x){
-  required <- c(
-    "id",
-    "fastq",
-    "condition",
-    "type"
-  )
-    missing <- required[!(required %in% names(x))]
-    if (length(missing) > 0){
-      stop("Attributes missing from element in infiles: ", paste(missing, collapse="; "))
-    }
-}
-
+## This function is used to validate that the config file has right attributes
 validateConfig <- function(conf){
   required <- c(
     'experiment_title',
@@ -190,6 +191,20 @@ validateConfig <- function(conf){
   invisible(lapply(conf$infiles, validateInfiles))
 }
 
+## Ensure that config file has inputs within it
+validateInfiles <- function(x){
+  required <- c(
+    "id",
+    "fastq",
+    "condition",
+    "type"
+  )
+    missing <- required[!(required %in% names(x))]
+    if (length(missing) > 0){
+      stop("Attributes missing from element in infiles: ", paste(missing, collapse="; "))
+    }
+}
+
 getGenesWbId <- function(c_elegans_annots, genes){
   gene.to.wbid<-read.table(file=c_elegans_annots,header=F,stringsAsFactors=F)
   colnames(gene.to.wbid)<-c('gene','wbid')
@@ -197,6 +212,8 @@ getGenesWbId <- function(c_elegans_annots, genes){
   wbid<-gene.to.wbid$wbid[relevant_genes_ix]
 }
 
+## Read in annotation file and transform to remove duplicates subset to relevant
+## information
 getCelegansAnnotations <- function(file){
   c_elegans_annots <- read.xlsx(file)
   relevant_cols <- c("Gene.WB.ID", "Sequence.Name.(Gene)", "Chr.Name")
@@ -236,6 +253,7 @@ pValueLogFoldChangeByChromosome <- function(df){
   return(res)
 }
 
+## Creates a list of input files and experimental metadata
 readInFiles <- function(infiles){
   idx = 1
   id_to_idx = new.env()
@@ -252,7 +270,7 @@ readInFiles <- function(infiles){
   files_by_id <- vector("list", num_files)
   conditions <- vector("list", num_files)
   types <- vector("list", num_files)
-  
+
   for (ele in infiles){
     idx  <- id_to_idx[[toString(ele$id)]]
     if (is.null(files_by_id[[idx]])){
@@ -264,9 +282,9 @@ readInFiles <- function(infiles){
     types[[idx]] <- ele$type
   }
   count_files <- unlist(lapply(files_by_id, function(x)
-    paste0(paste0(gsub(".fastq.gz", "", unlist(x)), collapse="_"), bam_suffix)))
+    paste0(paste0(str_replace_all(unlist(x), c(".fastq.gz"="",".fastq"="")), collapse="_"), bam_suffix)))
   fpkm_files <- unlist(lapply(files_by_id, function(x)
-    paste0(paste0(gsub(".fastq.gz", "", unlist(x)), collapse="_"), fpkm_suffix)))
+    paste0(paste0(str_replace_all(unlist(x), c(".fastq.gz"="",".fastq"="")), collapse="_"), fpkm_suffix)))
   return(list(
     "count_files"=count_files,
     "fpkm_files"=fpkm_files,
@@ -274,9 +292,12 @@ readInFiles <- function(infiles){
     "types"=unlist(types)
   ))
 }
+
 ########################
 ##### Start script #####
+########################
 
+## Load in the arguments from command line (location of YAML file) ##
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args)==0) {
   stop("At least one argument must be supplied (the deseq yaml config file).n", call.=FALSE)
@@ -286,12 +307,15 @@ if (length(args)==0) {
 conf <- yaml.load_file(args[1])
 validateConfig(conf)
 
+## Define file paths to get to processed experimental files ##
 ercan_rna <- "/scratch/cgsb/ercan/rna/deseq"
 scratch_dir <- file.path(ercan_rna, conf$experiment_title)
+# Checks to see if the experimental comparisons have been made before
 if (dir.exists(scratch_dir)){
   stop(sprintf("the experiment title '%s' already exists. Change this title or remove the %s directory.", conf$experiment_title, scratch_dir))
 }
 
+## Define directories for input/output files
 working_dir <- dirname(args[1])
 fpkm_dir <- file.path(working_dir, "fpkm")
 counts_dir <- file.path(working_dir, "counts")
@@ -299,11 +323,13 @@ deseq_dir <- file.path(working_dir, conf$experiment_title)
 out_dir <- file.path(deseq_dir, "results")
 dir.create(out_dir,showWarnings = FALSE, recursive = TRUE)
 
+## Creates a list of input files and experimental metadata
 inFiles_data <- readInFiles(conf$infiles)
 sampleCondition <- inFiles_data$conditions
 conditions <- levels(factor(sampleCondition))
 sampleType <- inFiles_data$type
 condition_type <- vector()
+#for loop creates a vector of treatments
 for (i in 1:length(sampleCondition)){
   cond <- sampleCondition[i]
   if (!(cond %in% names(condition_type))) {condition_type[cond] = sampleType[i]}
@@ -311,10 +337,14 @@ for (i in 1:length(sampleCondition)){
 sampleFiles <- inFiles_data$count_files
 fpkm_files <- inFiles_data$fpkm_files
 
+## Read in the HTseq outputs into dds format ##
+
 sampleTable <- data.frame(sampleName=sampleFiles, fileName=sampleFiles, condition=sampleCondition)
 dds <- DESeqDataSetFromHTSeqCount(sampleTable = sampleTable, directory = counts_dir, design= ~ condition)
 
-## filter out low/no count genes ##
+## Filter out low/no count genes. Need more then 1 count per gene ##
+#We are currently not filtering out here . The code is just here to show
+#how to do it.
 # nrow(dds)
 # [1] 20389
 filt.dds <- dds[ rowSums(counts(dds)) > 1, ]
@@ -323,14 +353,18 @@ filt.dds <- dds[ rowSums(counts(dds)) > 1, ]
 # [1] 19841
 # That is, 548 genes had no reads across all 40 samples.
 
-## get normalized count values ##
-#
+## Get normalized count values ##
+#DEseq works to estimate variability of samples and applies -ve binomial model
 dds<-DESeq(dds)
+#Extract out the normalized count value from the DEseq analysis object
 normalized.count.data<-(assays(dds)[["mu"]])
 colnames(normalized.count.data)<-getColNames(sampleCondition)
 normalized.count.data <- as.data.frame(normalized.count.data)
 
+#Extract out gene names, WB gene names and chr for annotated genes
 c_elegans_annots <- getCelegansAnnotations(conf$c_elegans_annots)
+
+##IM HERE
 
 ## make heatmap plot of FPKM values of replicates based on spearman correlation
 DATANAME <- paste0(conditions, collapse = 'vs')

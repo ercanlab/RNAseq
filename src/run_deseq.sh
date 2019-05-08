@@ -14,7 +14,8 @@ export SBATCH_SCRIPTS=$(egrep 'sbatch_scripts:' $YAML_CONFIG | awk '!/^#/ && $0=
 
 mkdir -p /scratch/$NYUID/reports
 
-sbatch --output=/scratch/$NYUID/reports/slurm_deseq_%j.out\
+sbatch --output=$WORKING_DIR/reports/slurm_deseq_%j.out\
+       --error=$WORKING_DIR/reports/slurm_deseq_%j.err\
        --mail-type=ALL\
        --mail-user=$MAIL\
        --export=YAML_CONFIG,SBATCH_SCRIPTS\
