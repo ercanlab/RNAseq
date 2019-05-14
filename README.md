@@ -165,5 +165,5 @@ If you started with BAM files (or if the issue is not at the level of mapping an
 #### Note:
 These 4 examples show how ways to check that the pipeline has worked. Sometimes errors way still slip through. Keep an eye out to make sure  you get all the desired output files.
 
-#### DEseq
+#### Differential expression analysis
 If you are not interested in completing differential analysis there is no need to carry on from this point. You will have files containing CPM, TPM and RPKM from all samples.
