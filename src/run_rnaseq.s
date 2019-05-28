@@ -67,8 +67,8 @@ rm $WORKING_DIR/files.txt
 
 #Clean up working directory.
 #Move Fastq files to their own directory
-mkdir FastQ
-mv *fastq FastQ
+mkdir Fastq
+mv *fastq Fastq
 #Move tophat files to their own directory
 # NOTE: if genome changes then this will also need to be changed.
 mkdir tophat
@@ -78,17 +78,25 @@ mv *_ce10_tophat/ tophat
 mkdir -p ReadAlignments
 mv *txt ReadAlignments
 
-# Copy the bam files to the ercanlab folder.
-cp tophat/*_ce10_tophat/*accepted_hits.bam $ercan_rna/bam
-# Copy the tophat folders to the ercanlab folder.
-cp -r tophat/*_ce10_tophat $ercan_rna/tophat/
-
 # (for ease) Copy all bamfiles to a new folder.
 # Make a new folder.
-mkdir bamfiles
+mkdir BAM
 #Copy all bamfiles into the new folder and cd into it.
-cp tophat/*_ce10_tophat/*accepted_hits.bam bamfiles
-cd bamfiles
+cp tophat/*_ce10_tophat/*accepted_hits.bam BAM
+cd BAM
+
+#Rename files to remove accepted_hits suffixes
+SUFF='_accepted_hits.bam'
+suff='.bam'
+for i in $(ls *$SUFF)
+do
+  mv -f $i ${i%$SUFF}$suff
+done
+
+# Copy the bam files to the ercanlab folder.
+cp *.bam $ercan_rna/bam
+# Copy the tophat folders to the ercanlab folder.
+cp -r tophat/*_ce10_tophat $ercan_rna/tophat/
 
 ### MERGE ANY TECHNICAL REPLICATES
 
@@ -116,7 +124,7 @@ merge_bams(){
     i=0
     out=""
     while read -r line; do
-      array[$i]=${line%%.fastq*}_accepted_hits.bam
+      array[$i]=${line%%.fastq*}.bam
       if [ $i -gt 0 ]; then
         out=${out}_
       fi
@@ -125,7 +133,7 @@ merge_bams(){
     done < <(cat $f)
     if [ $i -ge 2 ]; then
       to_remove+=(${array[*]})
-      out=${out}_accepted_hits.bam
+      out=${out}.bam
       samtools merge $out ${array[*]}
     fi
     unset array
@@ -169,14 +177,10 @@ mv bamfiles/*/ cufflinks/
 #Save the outputs to ERcan lab directories
 cp -r cufflinks/* $ercan_rna/cufflinks/
 
-#Save fpkm outputs to their own diriectory for easy access
-mkdir -p fpkm
-cp cufflinks/*/*.genes.fpkm_tracking fpkm
-
 ### MAKE THE COUNT FILES
 
 # count how many bam files there are to count
-cd bamfiles
+cd BAM
 ls *bam > files.txt
 n=$(wc -l files.txt | awk '$0=$1')
 
