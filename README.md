@@ -205,7 +205,7 @@ less /scratch/$NYUID/reports/slurm_deseq_$JOBID.out
 
 You will also receive emails that detail the start and end of the script. You can keep an eye on these outputs to check when the pipeline ends.
 
-#### 8. Check results and how the job performed
+#### 3. Check results and how the job performed
 
 ###### A. Check your emails:
 You will get an email for the start and end of the DEseq script. Check the email that signals the end of the job and make sure that they have a COMPLETED status (as opposed to FAILED) and that the exit code is [0-0].  
