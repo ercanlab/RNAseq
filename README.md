@@ -114,7 +114,7 @@ To check if it is still running can use the squeue command:
 squeue -u $NYUID
 ```
 
-In the output of this command look for the row named 'chip' for current status and runtime so far. The command also gives the $JOBID of the job. These can be used to access the logs of the job (i.e. the printed messages). Logs will be stored in /scratch/$NYUID/reports/slurm_rnaseq_$JOBID.out  
+In the output of this command look for the row named 'rnaseq' for current status and runtime so far. The command also gives the $JOBID of the job. These can be used to access the logs of the job (i.e. the printed messages). Logs will be stored in /scratch/$NYUID/reports/slurm_rnaseq_$JOBID.out  
 As a sanity check you can look at the top of this log file to make sure the program read the configuration file correctly. You can look at this log file while the job is running:
 
 ```sh
@@ -133,6 +133,7 @@ cp ReadAlignments/* /archive/s/se71/ercanlab/ReadAlignments
 
 ###### A. Check your emails:
 You will get a series of emails for the start and end of the different jobs that the RNA-seq pipeline spawns. Check the emails that signal the end of a job and make sure that they have a COMPLETED status (as opposed to FAILED) and that the exit code is [0-0].  
+
 ###### B. Run the find errors command:
 Some errors are not reported in the emails. And this command might catch some of these. If it finds no errors this command will output nothing. If it finds errors then it outputs the file where it found the errors and the corresponding error messages (note that the file name indicates in which part of the pipeline the error occurred).
 ```sh
@@ -163,7 +164,58 @@ rm -rf bam* cou* cuff* fpk* Re* re* t*
 If you started with BAM files (or if the issue is not at the level of mapping and you do not want to run bowtie again) you can substitute moving the contents of Fastq directory with moving contents of BAM directory.
 
 #### Note:
-These 4 examples show how ways to check that the pipeline has worked. Sometimes errors way still slip through. Keep an eye out to make sure  you get all the desired output files.
+These 4 examples show how ways to check that the pipeline has worked. Sometimes errors way still slip through. Keep an eye out to make sure you get all the desired output files.
+
+### E. Look at results
+Most of the data you are interested in will be kept in the summary directory. If you are interested in specific files i.e. isoform information, you can check the relevant subdirectory for more detailed metadata files.
+
+The summary directory will contain two types of files. (1) The summary files contain all types of mean normalized count information (i.e. mean TPMs, CPMs and FPKM) from all of the replicates for each condition. There are also the standard deviation. (2) All files contain the normalized count information for every individual replicate.
+
+For analysis choose between using CPMs or TPMs. If you are comparing expression between genes under the same condition (i.e. within sample), use the TPM. This accounts for gene length and normalizes to sequence length variation within the pool (and therefore is better then fpkm). If you are comparing gene expression between different conditions or different strains use the CPMs or continuue on to differential expression analysis with DEseq.
 
 #### Differential expression analysis
-If you are not interested in completing differential analysis there is no need to carry on from this point. You will have files containing CPM, TPM and RPKM from all samples.
+If you are not interested in completing differential analysis there is no need to carry on from this point. You will already have files containing CPM, TPM and FPKM from all samples. For differential expression analysis we use the Bioconductor tool DEseq (https://bioconductor.org/packages/release/bioc/html/DESeq.html).
+
+#### 1. Get the DEseq script
+Go to the folder where the initial RNAseq pipeline was run. Copy the DEseq script into this directory.
+
+```sh
+cd /scratch/NYUID/NewRNAseq
+cp /scratch/cgsb/ercan/scripts/rna/slurm/run_deseq.sh .
+```
+#### 2. Run DEseq script
+Run the DEseq script. There is no need to add any more information, as the original config file from the RNAseq pipeline will provide all the required information.
+```sh
+source run_deseq.sh
+```
+
+This job may take several hours. The length of time will depend on how many files you are running.  
+To check if it is still running can use the squeue command:
+
+```sh
+squeue -u $NYUID
+```
+
+In the output of this command look for the row named 'deseq' for current status and runtime so far. The command also gives the $JOBID of the job. These can be used to access the logs of the job (i.e. the printed messages). Logs will be stored in /scratch/$NYUID/reports/slurm_deseq_$JOBID.out  
+As a sanity check you can look at the top of this log file to make sure the program read the configuration file correctly. You can look at this log file while the job is running:
+
+```sh
+less /scratch/$NYUID/reports/slurm_deseq_$JOBID.out
+```
+
+You will also receive emails that detail the start and end of the script. You can keep an eye on these outputs to check when the pipeline ends.
+
+#### 8. Check results and how the job performed
+
+###### A. Check your emails:
+You will get an email for the start and end of the DEseq script. Check the email that signals the end of the job and make sure that they have a COMPLETED status (as opposed to FAILED) and that the exit code is [0-0].  
+
+###### B. Check the log files for the job as a whole
+
+```sh
+cat /scratch/$NYUID/reports/slurm_rnaseq_$JOBID.out
+```
+###### C. Check the directory structure
+Once the job had completed successfully the WD should look as below:
+![rna_pipeline_directory_example](https://github.com/ercanlab/RNAseq/blob/master/deseq_output.png).
+The results can be found under the folder that is named after the experiment_title field you submitted in the RNA-seq configuration file. In this case, the results are in dpy-27-RNAi_test
