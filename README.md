@@ -218,4 +218,5 @@ cat /scratch/$NYUID/reports/slurm_rnaseq_$JOBID.out
 ###### C. Check the directory structure
 Once the job had completed successfully the WD should look as below:
 ![rna_pipeline_directory_example](https://github.com/ercanlab/RNAseq/blob/master/deseq_output.png).
+
 The results can be found under the folder that is named after the experiment_title field you submitted in the RNA-seq configuration file. In this case, the results are in dpy-27-RNAi_test
