@@ -1,18 +1,28 @@
-##########################################################################################
-## Performs standard DEseq analysis. Also saves DEseq results
-##
-## usage: Rscript Initial_DESeq2_Analysis.R YAML_CONFIG
-##
-## positional arguments:
-##  YAML_CONFIG           the configuration file. See /scratch/cgsb/ercan/scripts/rna/slurm/config_deseq.yaml
-##                        in Prince or https://drive.google.com/open?id=1HCEOuFQQsObFf5QVLvF3n0a-894Ts9Ze for an example
-##
-#########################################################################################
+################################################################################
+## Performs standard DEseq analysis. Also saves DEseq results                 ##
+##                                                                            ##
+## usage: Rscript Initial_DESeq2_Analysis.R YAML_CONFIG                       ##
+##                                                                            ##
+## positional arguments:                                                      ##
+##  YAML_CONFIG                                                               ##
+##  An example of the configuration file is on Prince at:                     ##
+##  /scratch/cgsb/ercan/scripts/rna/slurm/config_deseq.yaml                   ##
+##  or on gdrive:                                                             ##
+##  https://drive.google.com/open?id=1HCEOuFQQsObFf5QVLvF3n0a-894Ts9Ze        ##
+##                                                                            ##
+################################################################################
 
-###################################################################################################################################
-## The package DESeq2 provides methods to test for differential expression by use of negative binomial generalized linear models #################################
-## documentation: https://bioconductor.org/packages/3.7/bioc/vignettes/DESeq2/inst/doc/DESeq2.html
-###################################################################################################################################
+
+################################################################################
+## The package DESeq2 provides methods to test for differential expression by ##
+## use of negative binomial generalized linear models                         ##
+## Documentation for DESSeq2 is found at:                                     ##
+## https://bioconductor.org/packages/3.7/bioc/vignettes/DESeq2/inst/doc/DESeq2.html ##
+################################################################################
+
+
+## Load up required packages
+library('stringr')
 suppressMessages(library('DESeq2'))
 library('yaml')
 suppressMessages(library('gplots'))
@@ -22,6 +32,9 @@ suppressMessages(library("dplyr"))
 
 ####################################
 ##### Define utility functions #####
+####################################
+
+## Extract condition and rep names to add to normalized data frame.
 getColNames <- function(sampleCondition){
   curr_condition <- ""
   col_names <- vector(mode="character", length=length(sampleCondition))
@@ -38,6 +51,7 @@ getColNames <- function(sampleCondition){
   col_names
 }
 
+## Make a dataframe of rpkms
 make_fpkm_df <- function(dir, files, sampleCondition, to_threshold=FALSE){
   # todo
   g1 <- 'T21D12.9'
@@ -65,20 +79,22 @@ make_fpkm_df <- function(dir, files, sampleCondition, to_threshold=FALSE){
   return(df)
 }
 
+#This function does comparisons of gene expression between conditions using DEeq
 do.DEseq<-function(tableA,tableB,conditionA,conditionB,condA.avg, condB.avg, condition_type){
   TABLE<-rbind(tableA, tableB)
   DDS<-DESeqDataSetFromHTSeqCount(sampleTable = TABLE, directory = counts_dir, design= ~ condition)
+  filt.DDS <- DDS[ rowSums(counts(dds)) > 1, ]
   if (condition_type[conditionA] == 'control'){
-    DDS$condition <- relevel(DDS$condition, ref = conditionA)
+    filt.DDS$condition <- relevel(filt.DDS$condition, ref = conditionA)
   } else if (condition_type[conditionB] == 'control'){
-    dds$condition <- relevel(dds$condition, ref = conditionB)
+    filt.DDS$condition <- relevel(filt.DDS$condition, ref = conditionB)
   }
-  DDS<-DESeq(DDS)
+  DDS<-DESeq(filt.DDS)
   DDS.res<-results(DDS, alpha=0.05)
-  DDS.res$unadj.log2<-log2(condA.avg/condB.avg)
   return(DDS.res)
 }
 
+#Modify data frame to give appropriate headers to filenames
 updatePairwiseDataFrame <- function(df, res, col.basename){
   df[paste0(col.basename,'.log2.deseq')] <- res$log2FoldChange
   df[paste0(col.basename,'.log2')] <- res$unadj.log2
@@ -86,6 +102,7 @@ updatePairwiseDataFrame <- function(df, res, col.basename){
   return(df)
 }
 
+## Plot correlations between chr heatmaps
 plotSpearmenHeatmap <- function(df, file, title){
   c <- cor(df, method="spearman", use="complete.obs")
   pdf(file=file)
@@ -95,28 +112,37 @@ plotSpearmenHeatmap <- function(df, file, title){
   dev.off()
 }
 
+# Plot pairwise counts comparisons along with Rsquared value for every pairwise comparison
 plotPairwiseCountData <- function(df, file){
   df<-as.data.frame(df)
   reps.list<-colnames(df)
   n_reps = length(reps.list)
-  pdf(file=filepath,2*n_reps,2*n_reps)
-  par(mfrow=(c(n_reps,n_reps)))
+  pdf(file=filepath)
+  par(mfrow=(c(3,3)))
+  par(mar=c(4,4,1,1))
   for(i in 1:n_reps){
     x.data<-df[,reps.list[i]]
     for(j in 1:n_reps){
-      if(j >=i){
-
+      if(j!=i){
         y.data<-df[,reps.list[j]]
-        plot((x.data),(y.data),xlab=reps.list[i],ylab=reps.list[j],xlim=c(0,110000),ylim=c(0,110000)) #you may want to change the x and y limits
+        plot_limits<-c(0,signif(range(df)[2]+(range(df)[2]/10), digits = 2))
+        plot((x.data),(y.data),xlab=reps.list[i],ylab=reps.list[j],xlim=plot_limits,ylim=plot_limits) #you may want to change the x and y limits
         r2<-round(summary(lm(y.data ~ x.data))$r.squared,4)
-        text(25000,100000,paste('r2=',r2)) #you may want to change where the rqsured value is recorded
+        text(plot_limits[2]*(1.5/5),plot_limits[2]*(4/5),paste('r2=',r2))
+      }else{
+      plot_limits<-c(0,signif(range(df)[2]+(range(df)[2]/10), digits = 2))
+      plot(0,0,type='l',xlab='',ylab='',axes=F,xlim=plot_limits,ylim=plot_limits)
+      text(x=plot_limits[2]/(1.9), y=plot_limits[2]/2,reps.list[i], cex=2)
       }
-      else{plot(1,1,type='n',bty='n',xlab='',ylab='',axes=F)}
     }
   }
   dev.off()
 }
 
+y.data<-df[,reps.list[1]]
+round(summary(lm(y.data ~ x.data))$r.squared,4)
+
+#Helps prepare dataframe for plotting and removes mitochondrial dna
 joinChromosome <- function(df, c_elegans_annots){
   df <- as.data.frame(df)
   df$gene.name <- rownames(df)
@@ -125,6 +151,8 @@ joinChromosome <- function(df, c_elegans_annots){
   return(merged)
 }
 
+
+#Make a boxplot of log2FC for values of each chromosome
 boxPlotDESeqByChromosome <- function(df, file, c_elegans_annots, title){
   merged <- joinChromosome(df, c_elegans_annots)
   pdf(file=file)
@@ -145,6 +173,7 @@ boxPlotDESeqByChromosome <- function(df, file, c_elegans_annots, title){
   dev.off()
 }
 
+#Scatterplot comparing gene expression. X and A are highlighted
 scatterPlotDeseq <- function(res, c_elegans_annots, file, title){
   merged <- joinChromosome(res, c_elegans_annots)
   merged$is_X <- merged$Chr.Name == "X"
@@ -160,19 +189,7 @@ scatterPlotDeseq <- function(res, c_elegans_annots, file, title){
   dev.off()
 }
 
-validateInfiles <- function(x){
-  required <- c(
-    "id",
-    "fastq",
-    "condition",
-    "type"
-  )
-    missing <- required[!(required %in% names(x))]
-    if (length(missing) > 0){
-      stop("Attributes missing from element in infiles: ", paste(missing, collapse="; "))
-    }
-}
-
+## This function is used to validate that the config file has right attributes
 validateConfig <- function(conf){
   required <- c(
     'experiment_title',
@@ -190,6 +207,21 @@ validateConfig <- function(conf){
   invisible(lapply(conf$infiles, validateInfiles))
 }
 
+## Ensure that config file has inputs within it
+validateInfiles <- function(x){
+  required <- c(
+    "id",
+    "fastq",
+    "condition",
+    "type"
+  )
+    missing <- required[!(required %in% names(x))]
+    if (length(missing) > 0){
+      stop("Attributes missing from element in infiles: ", paste(missing, collapse="; "))
+    }
+}
+
+#Uses gene names from gtf file to extract out wormbase ID
 getGenesWbId <- function(c_elegans_annots, genes){
   gene.to.wbid<-read.table(file=c_elegans_annots,header=F,stringsAsFactors=F)
   colnames(gene.to.wbid)<-c('gene','wbid')
@@ -197,6 +229,8 @@ getGenesWbId <- function(c_elegans_annots, genes){
   wbid<-gene.to.wbid$wbid[relevant_genes_ix]
 }
 
+## Read in annotation file and transform to remove duplicates subset to relevant
+## information
 getCelegansAnnotations <- function(file){
   c_elegans_annots <- read.xlsx(file)
   relevant_cols <- c("Gene.WB.ID", "Sequence.Name.(Gene)", "Chr.Name")
@@ -236,6 +270,7 @@ pValueLogFoldChangeByChromosome <- function(df){
   return(res)
 }
 
+## Creates a list of input files and experimental metadata
 readInFiles <- function(infiles){
   idx = 1
   id_to_idx = new.env()
@@ -252,7 +287,7 @@ readInFiles <- function(infiles){
   files_by_id <- vector("list", num_files)
   conditions <- vector("list", num_files)
   types <- vector("list", num_files)
-  
+
   for (ele in infiles){
     idx  <- id_to_idx[[toString(ele$id)]]
     if (is.null(files_by_id[[idx]])){
@@ -264,9 +299,9 @@ readInFiles <- function(infiles){
     types[[idx]] <- ele$type
   }
   count_files <- unlist(lapply(files_by_id, function(x)
-    paste0(paste0(gsub(".fastq.gz", "", unlist(x)), collapse="_"), bam_suffix)))
+    paste0(paste0(str_replace_all(unlist(x), c(".fastq.gz"="",".fastq"="")), collapse="_"), bam_suffix)))
   fpkm_files <- unlist(lapply(files_by_id, function(x)
-    paste0(paste0(gsub(".fastq.gz", "", unlist(x)), collapse="_"), fpkm_suffix)))
+    paste0(paste0(str_replace_all(unlist(x), c(".fastq.gz"="",".fastq"="")), collapse="_"), fpkm_suffix)))
   return(list(
     "count_files"=count_files,
     "fpkm_files"=fpkm_files,
@@ -274,24 +309,30 @@ readInFiles <- function(infiles){
     "types"=unlist(types)
   ))
 }
+
 ########################
 ##### Start script #####
+########################
 
+## Load in the arguments from command line (location of YAML file) ##
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args)==0) {
   stop("At least one argument must be supplied (the deseq yaml config file).n", call.=FALSE)
 }
 
-## HTSeq input ##
+## HTSeq input - read in config file and check it has the right format
 conf <- yaml.load_file(args[1])
 validateConfig(conf)
 
+## Define file paths to get to processed experimental files ##
 ercan_rna <- "/scratch/cgsb/ercan/rna/deseq"
 scratch_dir <- file.path(ercan_rna, conf$experiment_title)
+# Checks to see if the experimental comparisons have been made before
 if (dir.exists(scratch_dir)){
   stop(sprintf("the experiment title '%s' already exists. Change this title or remove the %s directory.", conf$experiment_title, scratch_dir))
 }
 
+## Define directories for input/output files
 working_dir <- dirname(args[1])
 fpkm_dir <- file.path(working_dir, "fpkm")
 counts_dir <- file.path(working_dir, "counts")
@@ -299,11 +340,13 @@ deseq_dir <- file.path(working_dir, conf$experiment_title)
 out_dir <- file.path(deseq_dir, "results")
 dir.create(out_dir,showWarnings = FALSE, recursive = TRUE)
 
+## Creates a list of input files and experimental metadata
 inFiles_data <- readInFiles(conf$infiles)
-sampleCondition <- inFiles_data$conditions
+
 conditions <- levels(factor(sampleCondition))
 sampleType <- inFiles_data$type
 condition_type <- vector()
+#for loop creates a vector of treatments
 for (i in 1:length(sampleCondition)){
   cond <- sampleCondition[i]
   if (!(cond %in% names(condition_type))) {condition_type[cond] = sampleType[i]}
@@ -311,57 +354,68 @@ for (i in 1:length(sampleCondition)){
 sampleFiles <- inFiles_data$count_files
 fpkm_files <- inFiles_data$fpkm_files
 
+## Read in the HTseq outputs into dds format ##
+
 sampleTable <- data.frame(sampleName=sampleFiles, fileName=sampleFiles, condition=sampleCondition)
 dds <- DESeqDataSetFromHTSeqCount(sampleTable = sampleTable, directory = counts_dir, design= ~ condition)
 
-## filter out low/no count genes ##
-# nrow(dds)
-# [1] 20389
+## Filter out low/no count genes. Need more then 1 count per gene ##
 filt.dds <- dds[ rowSums(counts(dds)) > 1, ]
-# Example
-# nrow(filt.dds)
-# [1] 19841
-# That is, 548 genes had no reads across all 40 samples.
 
-## get normalized count values ##
-#
-dds<-DESeq(dds)
-normalized.count.data<-(assays(dds)[["mu"]])
+print(paste0('Of the ', nrow(dds), ' genes, ', nrow(filt.dds), ' have >1 reads summed across conditions. ', (nrow(filt.dds)/nrow(dds))*100, '% of genes remain'))
+
+## Get normalized count values ##
+#DEseq works to estimate variability of samples and applies -ve binomial model
+filt.dds<-DESeq(filt.dds)
+
+#Extract out the normalized count value from the DEseq analysis object
+normalized.count.data<-(assays(filt.dds)[["mu"]])
 colnames(normalized.count.data)<-getColNames(sampleCondition)
 normalized.count.data <- as.data.frame(normalized.count.data)
 
+#Extract out gene names, WB gene names and chr for annotated genes
 c_elegans_annots <- getCelegansAnnotations(conf$c_elegans_annots)
 
-## make heatmap plot of FPKM values of replicates based on spearman correlation
-DATANAME <- paste0(conditions, collapse = 'vs')
-thresholded_fpkm_data <- make_fpkm_df(fpkm_dir, fpkm_files, sampleCondition, to_threshold = TRUE)
-merged <- merge(thresholded_fpkm_data, c_elegans_annots, by.x="gene_id", by.y="Sequence.Name.(Gene)")
-merged <- filter(merged, Chr.Name != "MtDNA")
-not_for_plot <- c('Chr.Name', 'gene_id', 'Gene.WB.ID')
-for (chr in unique(merged$Chr.Name)){
-  filepath <- file.path(out_dir, paste0(DATANAME,'.heatmap.spearman.thresholded.fpkm.', chr, '.pdf'))
-  title <- paste0("Correlations of FPKM of ", chr, " genes")
 
-  df<-filter(merged, Chr.Name == chr)
-  df <- df[, !(names(df) %in% not_for_plot)]
-  plotSpearmenHeatmap(df, filepath, title)
-}
+## Make heatmap plot of FPKM values of replicates based on spearman correlation
+#DATANAME <- paste0(conditions, collapse = 'vs')
+#thresholded_fpkm_data <- make_fpkm_df(fpkm_dir, fpkm_files, sampleCondition, to_threshold = TRUE)
+## Add in the Chr info and Wormbase ID
+#merged <- merge(thresholded_fpkm_data, c_elegans_annots, by.x="gene_id", by.y="Sequence.Name.(Gene)")
+## Remove mitochondrial data
+#merged <- filter(merged, Chr.Name != "MtDNA")
+#not_for_plot <- c('Chr.Name', 'gene_id', 'Gene.WB.ID')
+#for (chr in unique(merged$Chr.Name)){
+#  #Set names and titles
+#  filepath <- file.path(out_dir, paste0(DATANAME,'.heatmap.spearman.thresholded.fpkm.', chr, '.pdf'))
+#  title <- paste0("Correlations of FPKM of Chr ", chr, " genes \n DATANAME")
+#  #pull out a single chromosome
+#  df<-filter(merged, Chr.Name == chr)
+#  #Drop uneeded annotation from plotting
+#  df <- df[, !(names(df) %in% not_for_plot)]
+#  #plot the correlations
+#  plotSpearmenHeatmap(df, filepath, title)
+#}
 # plot all chromosomes together
-filepath <- file.path(out_dir, paste0(DATANAME,'.heatmap.spearman.thresholded.fpkm.all.pdf'))
-title <- paste0("Correlations of FPKM values")
-plotSpearmenHeatmap(merged[, !(names(merged) %in% not_for_plot)], filepath, title)
+#filepath <- file.path(out_dir, paste0(DATANAME,'.heatmap.spearman.thresholded.fpkm.all.pdf'))
+#title <- paste0("Correlations of FPKM values \n DATANAME")
+#plotSpearmenHeatmap(merged[, !(names(merged) %in% not_for_plot)], filepath, title)
 
 ## get average count data table ##
+#Extract one condition at a time from normalized data, and then calculate mean
+# and stdev for each gene under that condition
 conditions_avg <- list()
 for (cond in conditions){
-  conditions_avg[[cond]] <- rowMeans(normalized.count.data[,sampleCondition == cond, drop=FALSE])
+  conditions_avg[[paste0(cond, '_mean')]] <- rowMeans(normalized.count.data[,sampleCondition == cond, drop=FALSE])
+  #conditions_avg[[paste0(cond, '_stdev')]] <- rowSds(data.matrix(normalized.count.data[,sampleCondition == cond, drop=FALSE]))
 }
 
+#Add gene names to average count data
 genes <- names(conditions_avg[[1]])
 wbid <- getGenesWbId(conf$c_elegans_wbid_to_gene, genes)
-
-
 avg.count.data<-data.frame(wbid=wbid, conditions_avg)
+
+#Save the normalized counts
 filepath <- file.path(out_dir,'avg.count.data.txt')
 write.table(format(avg.count.data, digits=2, scientific=FALSE),file=filepath,row.names=T,col.names=T,quote=F,sep='\t')
 
@@ -369,12 +423,14 @@ write.table(format(avg.count.data, digits=2, scientific=FALSE),file=filepath,row
 #######################################
 ## plot replicates pairwise with Rsquared values ##
 #######################################
-filepath <- file.path(out_dir, paste0(DATANAME, '.replicates.counts.vs.counts.Rsq.pdf'))
-plotPairwiseCountData(normalized.count.data, filepath)
+#filepath <- file.path(out_dir, paste0(DATANAME, '.replicates.counts.vs.counts.Rsq.pdf'))
+#plotPairwiseCountData(normalized.count.data, filepath)
 
 ########################
 ## do pairwise comparisons ##
 ########################
+
+#Generate a list with of all count data and its condition
 condTables = list()
 for (cond in conditions){
   condTables[[cond]] = sampleTable[sampleTable['condition']==cond,]
@@ -384,6 +440,7 @@ n_conditions <- length(conditions)
 pairwise_res_df <- data.frame(row.names = genes)
 for (i in seq(n_conditions-1)){
   for (j in seq(i+1,n_conditions)){
+  if(i!=j){
     deseq.df <- do.DEseq(condTables[[i]], condTables[[j]],
                         conditions[[i]], conditions[[j]],
                         conditions_avg[[i]], conditions_avg[[j]], condition_type)
@@ -391,6 +448,7 @@ for (i in seq(n_conditions-1)){
     basename <- paste0(conditions[[i]],'vs',conditions[[j]])
     filepath <- file.path(out_dir, paste0(basename,'.deseq.txt'))
     write.table(format(as.data.frame(deseq.df), digits=2, scientific=FALSE),file=filepath,row.names=T,col.names=T,quote=F,sep='\t')
+    #Modify data frame col names and minimise to just FC values and pvalues
     pairwise_res_df <- updatePairwiseDataFrame(pairwise_res_df, deseq.df, basename)
 
     filepath <- file.path(out_dir, paste0(basename,'.deseq.boxplot.by.chromosome.pdf'))
@@ -399,7 +457,7 @@ for (i in seq(n_conditions-1)){
     filepath <- file.path(out_dir, paste0(basename,'.deseq.scatterplot.pdf'))
     scatterPlotDeseq(deseq.df, c_elegans_annots, filepath, "Log Fold change vs expression")
   }
-}
+}}
 
 #### Make a table with all of the relevant data ####
 genes <- names(conditions_avg[[1]])
@@ -411,7 +469,5 @@ filepath <- file.path(out_dir, 'deseq.summaryoverview.txt')
 write.table(format(summary.data.df, digits=2, scientific=FALSE),file=filepath,row.names=T,col.names=T,quote=F,sep='\t')
 
 # todo: organize folder - should have conf in top dir then a counts folder, a fpkm folder and a output folder
-file.copy(fpkm_dir, deseq_dir, recursive = TRUE)
-file.copy(counts_dir, deseq_dir, recursive = TRUE)
 file.copy(args[1], deseq_dir)
 file.copy(deseq_dir, ercan_rna, recursive = TRUE)
