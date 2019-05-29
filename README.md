@@ -166,7 +166,7 @@ If you started with BAM files (or if the issue is not at the level of mapping an
 #### Note:
 These 4 examples show how ways to check that the pipeline has worked. Sometimes errors way still slip through. Keep an eye out to make sure you get all the desired output files.
 
-### E. Look at results
+###### E. Look at results
 Most of the data you are interested in will be kept in the summary directory. If you are interested in specific files i.e. isoform information, you can check the relevant subdirectory for more detailed metadata files.
 
 The summary directory will contain two types of files. (1) The summary files contain all types of mean normalized count information (i.e. mean TPMs, CPMs and FPKM) from all of the replicates for each condition. There are also the standard deviation. (2) All files contain the normalized count information for every individual replicate.
