@@ -9,7 +9,7 @@ The below instructions will outline the steps to run the ChIP-seq analysis pipel
 Author: Sevinc Ercan - se71@nyu.edu
 
 Implementation:
-Sarah Albritton - sarahea283@gmail.com
+Sarah Albritton - sarahea283@gmail.com  
 Diogo Mesquita - dam740@nyu.edu  
 Lena Street - las821@nyu.edu   
 Matt Paul - matthew.paul.2006@gmail.com  
