@@ -202,3 +202,8 @@ cd $WORKING_DIR
 mkdir -p counts
 mv bamfiles/*counts* counts/
 cp counts/*counts* $ercan_rna/counts/
+
+#Make summary outputs
+module load r/intel/3.4.2
+
+Rscript $SBATCH_SCRIPTS/create_summary_outputs.R $WORKING_DIR
