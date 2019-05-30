@@ -129,3 +129,37 @@ cpm<-merge(fpkm[,1:2],cpm)
 write.csv(tpm, file=paste0(args[1],'/summary/all_tpms_',paste0(conditions,collapse='-'),'.csv'))
 write.csv(fpkm, file=paste0(args[1],'/summary/all_fpkms_',paste0(conditions,collapse='-'),'.csv'))
 write.csv(cpm, file=paste0(args[1],'/summary/all_cpms',paste0(conditions,collapse='-'),'.csv'))
+
+## Make heatmap plot of CPM values of replicates based on spearman correlation
+
+# Filter out Mitochondria genes
+cpm<-cpm[-grep('MtDNA',cpm[,2]),]
+
+chrs<-c('CHROMOSOME_I:','CHROMOSOME_II:','CHROMOSOME_III:','CHROMOSOME_IV:','CHROMOSOME_V:', 'CHROMOSOME_X:')
+
+## Plot correlations between chr heatmaps
+plotSpearmenHeatmap <- function(df, file, title){
+  c <- cor(df, method="spearman", use="complete.obs")
+  pdf(file=file)
+  mypalette<-brewer.pal(11,"Spectral")
+  morecols<-colorRampPalette(mypalette)
+  heatmap.2(c, main=title,col=rev(morecols(50)),trace="none", margins=c(17,6),denscol='black')
+  dev.off()
+}
+
+#Run it over each chromosome
+suppressMessages(library('gplots'))
+library('RColorBrewer')
+for (chr in chrs){
+  #Set names and titles
+  filepath <- paste0(args[1],'/summary/',paste0(conditions,collapse='-'),chr,'.heatmap.spearman.thresholded.fpkm.pdf')
+  title <- paste0("Correlations of CPM of", chr, "genes\n",paste0(conditions,collapse='-'))
+  #pull out a single chromosome
+  df<-cpm[grep(chr,cpm[,2]),]
+  #plot the correlations
+  plotSpearmenHeatmap(df[,-c(1:2)], filepath, title)
+}
+# plot all chromosomes together
+filepath <- paste0(args[1],'/summary/',paste0(conditions,collapse='-'),'ALL.heatmap.spearman.thresholded.fpkm.pdf')
+title <- paste0("Correlations of CPM of all genes\n",paste0(conditions,collapse='-'))
+  plotSpearmenHeatmap(cpm[,-c(1:2)], filepath, title)
