@@ -96,7 +96,7 @@ done
 # Copy the bam files to the ercanlab folder.
 cp *.bam $ercan_rna/bam
 # Copy the tophat folders to the ercanlab folder.
-cp -r tophat/*_ce10_tophat $ercan_rna/tophat/
+cp -r ../tophat/*_ce10_tophat $ercan_rna/tophat/
 
 ### MERGE ANY TECHNICAL REPLICATES
 
@@ -172,13 +172,12 @@ done
 #Move cufflinks outputs to their own directory
 cd $WORKING_DIR
 mkdir -p cufflinks
-mv bamfiles/*/ cufflinks/
+mv BAM/*/ cufflinks/
 
 #Save the outputs to ERcan lab directories
 cp -r cufflinks/* $ercan_rna/cufflinks/
 
 ### MAKE THE COUNT FILES
-
 # count how many bam files there are to count
 cd BAM
 ls *bam > files.txt
@@ -196,11 +195,11 @@ job_out=$(sbatch --output=$WORKING_DIR/reports/slurm_htseq_%j.out\
 
 wait_for_job "$job_out"
 echo "HtSeq-Count finished"
-cd $WORKING_DIR
 
 #Move count data to its own directory
+cd $WORKING_DIR
 mkdir -p counts
-mv bamfiles/*counts* counts/
+mv BAM/*counts* counts/
 cp counts/*counts* $ercan_rna/counts/
 
 #Make summary outputs

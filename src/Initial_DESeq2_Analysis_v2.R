@@ -102,16 +102,6 @@ updatePairwiseDataFrame <- function(df, res, col.basename){
   return(df)
 }
 
-## Plot correlations between chr heatmaps
-plotSpearmenHeatmap <- function(df, file, title){
-  c <- cor(df, method="spearman", use="complete.obs")
-  pdf(file=file)
-  mypalette<-brewer.pal(11,"Spectral")
-  morecols<-colorRampPalette(mypalette)
-  heatmap.2(c, main=title,col=rev(morecols(50)),trace="none", margins=c(17,6),denscol='black')
-  dev.off()
-}
-
 # Plot pairwise counts comparisons along with Rsquared value for every pairwise comparison
 plotPairwiseCountData <- function(df, file){
   df<-as.data.frame(df)
@@ -139,8 +129,8 @@ plotPairwiseCountData <- function(df, file){
   dev.off()
 }
 
-y.data<-df[,reps.list[1]]
-round(summary(lm(y.data ~ x.data))$r.squared,4)
+#y.data<-df[,reps.list[1]]
+#round(summary(lm(y.data ~ x.data))$r.squared,4)
 
 #Helps prepare dataframe for plotting and removes mitochondrial dna
 joinChromosome <- function(df, c_elegans_annots){
@@ -282,7 +272,7 @@ readInFiles <- function(infiles){
     }
   }
   num_files <- length(id_to_idx)
-  bam_suffix <- "_accepted_hits_counts.txt"
+  bam_suffix <- "_counts.txt"
   fpkm_suffix <- "_cufflinks.genes.fpkm_tracking"
   files_by_id <- vector("list", num_files)
   conditions <- vector("list", num_files)
@@ -343,12 +333,12 @@ dir.create(out_dir,showWarnings = FALSE, recursive = TRUE)
 ## Creates a list of input files and experimental metadata
 inFiles_data <- readInFiles(conf$infiles)
 
-conditions <- levels(factor(sampleCondition))
+conditions <- levels(factor(inFiles_data$conditions))
 sampleType <- inFiles_data$type
 condition_type <- vector()
 #for loop creates a vector of treatments
-for (i in 1:length(sampleCondition)){
-  cond <- sampleCondition[i]
+for (i in 1:length(inFiles_data$conditions)){
+  cond <- inFiles_data$conditions[i]
   if (!(cond %in% names(condition_type))) {condition_type[cond] = sampleType[i]}
 }
 sampleFiles <- inFiles_data$count_files
@@ -356,7 +346,7 @@ fpkm_files <- inFiles_data$fpkm_files
 
 ## Read in the HTseq outputs into dds format ##
 
-sampleTable <- data.frame(sampleName=sampleFiles, fileName=sampleFiles, condition=sampleCondition)
+sampleTable <- data.frame(sampleName=sampleFiles, fileName=sampleFiles, condition=inFiles_data$conditions)
 dds <- DESeqDataSetFromHTSeqCount(sampleTable = sampleTable, directory = counts_dir, design= ~ condition)
 
 ## Filter out low/no count genes. Need more then 1 count per gene ##
@@ -370,44 +360,44 @@ filt.dds<-DESeq(filt.dds)
 
 #Extract out the normalized count value from the DEseq analysis object
 normalized.count.data<-(assays(filt.dds)[["mu"]])
-colnames(normalized.count.data)<-getColNames(sampleCondition)
+colnames(normalized.count.data)<-getColNames(inFiles_data$conditions)
 normalized.count.data <- as.data.frame(normalized.count.data)
 
 #Extract out gene names, WB gene names and chr for annotated genes
 c_elegans_annots <- getCelegansAnnotations(conf$c_elegans_annots)
 
 
-## Make heatmap plot of FPKM values of replicates based on spearman correlation
-#DATANAME <- paste0(conditions, collapse = 'vs')
-#thresholded_fpkm_data <- make_fpkm_df(fpkm_dir, fpkm_files, sampleCondition, to_threshold = TRUE)
-## Add in the Chr info and Wormbase ID
-#merged <- merge(thresholded_fpkm_data, c_elegans_annots, by.x="gene_id", by.y="Sequence.Name.(Gene)")
-## Remove mitochondrial data
-#merged <- filter(merged, Chr.Name != "MtDNA")
-#not_for_plot <- c('Chr.Name', 'gene_id', 'Gene.WB.ID')
-#for (chr in unique(merged$Chr.Name)){
-#  #Set names and titles
-#  filepath <- file.path(out_dir, paste0(DATANAME,'.heatmap.spearman.thresholded.fpkm.', chr, '.pdf'))
-#  title <- paste0("Correlations of FPKM of Chr ", chr, " genes \n DATANAME")
-#  #pull out a single chromosome
-#  df<-filter(merged, Chr.Name == chr)
-#  #Drop uneeded annotation from plotting
-#  df <- df[, !(names(df) %in% not_for_plot)]
-#  #plot the correlations
-#  plotSpearmenHeatmap(df, filepath, title)
-#}
-# plot all chromosomes together
-#filepath <- file.path(out_dir, paste0(DATANAME,'.heatmap.spearman.thresholded.fpkm.all.pdf'))
-#title <- paste0("Correlations of FPKM values \n DATANAME")
-#plotSpearmenHeatmap(merged[, !(names(merged) %in% not_for_plot)], filepath, title)
+# Make heatmap plot of FPKM values of replicates based on spearman correlation
+DATANAME <- paste0(conditions, collapse = 'vs')
+thresholded_fpkm_data <- make_fpkm_df(fpkm_dir, fpkm_files, sampleCondition, to_threshold = TRUE)
+# Add in the Chr info and Wormbase ID
+merged <- merge(thresholded_fpkm_data, c_elegans_annots, by.x="gene_id", by.y="Sequence.Name.(Gene)")
+# Remove mitochondrial data
+merged <- filter(merged, Chr.Name != "MtDNA")
+not_for_plot <- c('Chr.Name', 'gene_id', 'Gene.WB.ID')
+for (chr in unique(merged$Chr.Name)){
+  #Set names and titles
+  filepath <- file.path(out_dir, paste0(DATANAME,'.heatmap.spearman.thresholded.fpkm.', chr, '.pdf'))
+  title <- paste0("Correlations of FPKM of Chr ", chr, " genes \n DATANAME")
+  #pull out a single chromosome
+  df<-filter(merged, Chr.Name == chr)
+  #Drop uneeded annotation from plotting
+  df <- df[, !(names(df) %in% not_for_plot)]
+  #plot the correlations
+  plotSpearmenHeatmap(df, filepath, title)
+}
+ plot all chromosomes together
+filepath <- file.path(out_dir, paste0(DATANAME,'.heatmap.spearman.thresholded.fpkm.all.pdf'))
+title <- paste0("Correlations of FPKM values \n DATANAME")
+plotSpearmenHeatmap(merged[, !(names(merged) %in% not_for_plot)], filepath, title)
 
 ## get average count data table ##
 #Extract one condition at a time from normalized data, and then calculate mean
 # and stdev for each gene under that condition
 conditions_avg <- list()
 for (cond in conditions){
-  conditions_avg[[paste0(cond, '_mean')]] <- rowMeans(normalized.count.data[,sampleCondition == cond, drop=FALSE])
-  #conditions_avg[[paste0(cond, '_stdev')]] <- rowSds(data.matrix(normalized.count.data[,sampleCondition == cond, drop=FALSE]))
+  conditions_avg[[paste0(cond, '_mean')]] <- rowMeans(normalized.count.data[,inFiles_data$conditions == cond, drop=FALSE])
+  conditions_avg[[paste0(cond, '_stdev')]] <- rowSds(data.matrix(normalized.count.data[,inFiles_data$conditions == cond, drop=FALSE]))
 }
 
 #Add gene names to average count data
@@ -416,12 +406,11 @@ wbid <- getGenesWbId(conf$c_elegans_wbid_to_gene, genes)
 avg.count.data<-data.frame(wbid=wbid, conditions_avg)
 
 #Save the normalized counts
-filepath <- file.path(out_dir,'avg.count.data.txt')
+filepath <- file.path(out_dir,paste0(paste0(conditions, collapse='', sep=c('vs','_')),'avg.count.data.txt'))
 write.table(format(avg.count.data, digits=2, scientific=FALSE),file=filepath,row.names=T,col.names=T,quote=F,sep='\t')
 
-
 #######################################
-## plot replicates pairwise with Rsquared values ##
+## plot replicates pairwise with Rsquared values ##   CURRENTLY NOT PLOTTING. NEEDS SOME OPTIMISATION TO SCALE CORRECTLY ON A CASE BY CASE BASIS
 #######################################
 #filepath <- file.path(out_dir, paste0(DATANAME, '.replicates.counts.vs.counts.Rsq.pdf'))
 #plotPairwiseCountData(normalized.count.data, filepath)
@@ -447,7 +436,7 @@ for (i in seq(n_conditions-1)){
 
     basename <- paste0(conditions[[i]],'vs',conditions[[j]])
     filepath <- file.path(out_dir, paste0(basename,'.deseq.txt'))
-    write.table(format(as.data.frame(deseq.df), digits=2, scientific=FALSE),file=filepath,row.names=T,col.names=T,quote=F,sep='\t')
+    write.table(format(cbind(wbid,as.data.frame(deseq.df)), digits=2, scientific=FALSE),file=filepath,row.names=T,col.names=T,quote=F,sep='\t')
     #Modify data frame col names and minimise to just FC values and pvalues
     pairwise_res_df <- updatePairwiseDataFrame(pairwise_res_df, deseq.df, basename)
 
@@ -458,16 +447,3 @@ for (i in seq(n_conditions-1)){
     scatterPlotDeseq(deseq.df, c_elegans_annots, filepath, "Log Fold change vs expression")
   }
 }}
-
-#### Make a table with all of the relevant data ####
-genes <- names(conditions_avg[[1]])
-wbid <- getGenesWbId(conf$c_elegans_wbid_to_gene, genes)
-samplemeans.df<-as.data.frame(conditions_avg)
-
-summary.data.df<-as.data.frame(cbind(wbid,samplemeans.df, pairwise_res_df))
-filepath <- file.path(out_dir, 'deseq.summaryoverview.txt')
-write.table(format(summary.data.df, digits=2, scientific=FALSE),file=filepath,row.names=T,col.names=T,quote=F,sep='\t')
-
-# todo: organize folder - should have conf in top dir then a counts folder, a fpkm folder and a output folder
-file.copy(args[1], deseq_dir)
-file.copy(deseq_dir, ercan_rna, recursive = TRUE)
